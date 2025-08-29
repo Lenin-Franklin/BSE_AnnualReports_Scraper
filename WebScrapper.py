@@ -9,6 +9,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
 #-----------------------------------------------------------------
+# This program scrapes Annual Reports from BSE India website
+# Basically: Selenium drives Chrome 🏎️, Requests grabs PDFs 📑,
+# and Pandas keeps track of which companies to hunt down.
+#-----------------------------------------------------------------
 
 class CompanySearch:
     def __init__(self, driver, wait):
@@ -18,26 +22,29 @@ class CompanySearch:
     def search_company(self, company_code: str):
         """Searches for a company using its scrip code"""
         try:
+            # Wait until the search box is ready (patience is a virtue 🙏)
             search_box = self.wait.until(
                 EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_SmartSearch_smartSearch"))
             )
             search_box.clear()
             search_box.send_keys(company_code)
-            time.sleep(2)  # let dropdown load
+            time.sleep(2)  # give dropdown a chance to wake up ☕
             search_box.send_keys(Keys.ENTER)
 
+            # Smash that submit button 💥
             submit_btn = self.wait.until(
                 EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnSubmit"))
             )
             submit_btn.click()
 
+            # Wait until table loads (don’t rush the server, it’s slow sometimes 🐌)
             self.wait.until(
                 EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_gvData"))
             )
             print(f"✔️ Search completed for {company_code}")
 
         except Exception:
-            # Suppress full Selenium traceback — just log short info
+            # If something goes wrong → just drop a buffalo and move on 🐃
             print(f"Hold on yerume 🐃")
 
 
@@ -52,6 +59,7 @@ class AnnualReportDownloader:
     def download_reports(self, company_code: str, limit: int = 7):
         """Extracts annual report table and downloads only the latest N unique PDFs"""
         try:
+            # Find the table where the juicy reports live 📑
             report_table = self.wait.until(
                 EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_grdAnnualReport"))
             )
@@ -59,30 +67,30 @@ class AnnualReportDownloader:
 
             print(f"📑 Found {len(rows)-1} reports for {company_code}")
 
-            # Company-specific folder
+            # Make a folder just for this company (tidy coder = happy coder 🧹)
             company_dir = os.path.join(self.base_dir, company_code.upper())
             os.makedirs(company_dir, exist_ok=True)
 
-            # ✅ Collect only latest unique years
+            # Collect the latest reports (no hoarding duplicates 🙅)
             latest_rows = []
             seen_years = set()
 
-            for row in rows[1:]:  # skip header
+            for row in rows[1:]:  # skip header row
                 cols = row.find_elements(By.TAG_NAME, "td")
                 if not cols:
                     continue
 
                 year = cols[0].text.strip()
                 if not year or year in seen_years:
-                    continue  # skip duplicates / empty
+                    continue  # already seen this year, move along 🚶
 
                 seen_years.add(year)
                 latest_rows.append(row)
 
                 if len(latest_rows) >= limit:
-                    break
+                    break  # enough reports, don’t be greedy 😎
 
-            # ✅ Now download those reports
+            # Now the real fun → download the PDFs 🎉
             for row in latest_rows:
                 cols = row.find_elements(By.TAG_NAME, "td")
                 year = cols[0].text.strip()
@@ -105,20 +113,22 @@ class AnnualReportDownloader:
                     print(f"⚠️ No valid PDF link for {year}")
 
         except Exception as e:
+            # Things can explode 💣 … so let’s not crash the whole script
             print(f"⚠️ Error extracting reports for {company_code}: {e}")
             self.summary["errors"] += 1
 
 
 # --- Main Program ---
 if __name__ == "__main__":
+    # Paths you MUST edit 🎯
     csv_path = r"C:\Users\lenin\OneDrive\Desktop\Company_Names.csv"
     base_dir = r"C:\Users\lenin\OneDrive\Desktop\NSE Scraper"
 
-    # Load scrip codes from CSV
+    # Load company codes from CSV (Pandas doing its magic 🧙‍♂️)
     df = pd.read_csv(csv_path, header=None)
     company_codes = df[0].astype(str).tolist()
 
-    # ✅ Track summary
+    # Track overall progress (because who doesn’t like stats 📊)
     summary = {"total_companies": 0, "downloads": 0, "skipped": 0, "errors": 0}
 
     for company_code in company_codes:
@@ -126,16 +136,18 @@ if __name__ == "__main__":
         summary["total_companies"] += 1
 
         options = webdriver.ChromeOptions()
-        options.add_argument("--start-maximized")
+        options.add_argument("--start-maximized")  # go big or go home 🖥️
         driver = webdriver.Chrome(options=options)
         wait = WebDriverWait(driver, 15)
 
         try:
             driver.get("https://www.bseindia.com/corporates/HistoricalAnnualreport.aspx")
 
+            # Step 1: Search for the company 🔍
             searcher = CompanySearch(driver, wait)
             searcher.search_company(company_code)
 
+            # Step 2: Download its reports 📂
             downloader = AnnualReportDownloader(driver, wait, base_dir, summary)
             downloader.download_reports(company_code, limit=7)
 
@@ -144,7 +156,7 @@ if __name__ == "__main__":
             summary["errors"] += 1
 
         finally:
-            time.sleep(3)
+            time.sleep(3)  # let’s not slam the door on Chrome 🚪
             driver.quit()
 
     # --- ✅ Print Summary ---
@@ -153,5 +165,4 @@ if __name__ == "__main__":
     print(f"Total Reports Downloaded  : {summary['downloads']}")
     print(f"Total Reports Skipped     : {summary['skipped']}")
     print(f"Errors Encountered        : {summary['errors']}")
-    print("✅ Job Completed!")
-#-----------------------------------------------------------------------
+    print("✅ Job Completed! Time for chai ☕")
