@@ -21,7 +21,7 @@ import torch
 # =========================
 # CONFIG
 # =========================
-PDF_FOLDER = r"C:\Users\lenin\OneDrive\Desktop\BSE_Scraper\Company_PDF"
+PDF_FOLDER = r"C:\Users\lenin\OneDrive\Desktop\Missing_PDFs_FLAT2"
 EXCEL_PATH = r"C:\Users\lenin\OneDrive\Desktop\BSE_Scraper\ISO Data Collection.xlsx"
 CSV_SHADOW = EXCEL_PATH.replace(".xlsx", ".csv")
 LOG_FILE = r"C:\Users\lenin\OneDrive\Desktop\BSE_Scraper\iso_log.txt"
